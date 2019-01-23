@@ -29,24 +29,24 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Training settings
 parser = argparse.ArgumentParser(description="PyTorch SRResNet-GAN")
 # TODO:
-parser.add_argument('--food_tag_dat_path', type=str, default='../../data/det_ingrs.dat', help='avatar with tag\'s list path')
+parser.add_argument('--food_tag_dat_path', type=str, default='/home/kirai_wendong/proj/food-1000/ingredient/det_ingrs.dat', help='avatar with tag\'s list path')
 parser.add_argument('--learning_rate', type=float, default=0.0002, help='learning rate')
 parser.add_argument('--beta_1', type=float, default=0.5, help='adam optimizer\'s paramenter')
 parser.add_argument('--batch_size', type=int, default=64, help='training batch size for each epoch')
 parser.add_argument('--lr_update_cycle', type=int, default=50000, help='cycle of updating learning rate')
 parser.add_argument('--max_epoch', type=int, default=500, help='training epoch')
-parser.add_argument('--num_workers', type=int, default=4, help='number of data loader processors')
+parser.add_argument('--num_workers', type=int, default=0, help='number of data loader processors')
 parser.add_argument('--noise_size', type=int, default=128, help='number of G\'s input')
 parser.add_argument('--lambda_adv', type=float, default=34.0, help='adv\'s lambda')
 parser.add_argument('--lambda_gp', type=float, default=0.5, help='gp\'s lambda')
 # TODO:
-parser.add_argument('--model_dump_path', type=str, default='../../resource/gan_models', help='model\'s save path')
+parser.add_argument('--model_dump_path', type=str, default='../../models', help='model\'s save path')
 parser.add_argument('--verbose', type=bool, default=True, help='output verbose messages')
 # TODO:
-parser.add_argument('--tmp_path', type=str, default='../../resource/training_temp_1/', help='path of the intermediate files during training')
+parser.add_argument('--tmp_path', type=str, default='../../training_temp/', help='path of the intermediate files during training')
 parser.add_argument('--verbose_T', type=int, default=100, help='steps for saving intermediate file')
 # TODO:
-parser.add_argument('--logfile', type=str, default='../../resource/training.log', help='logging path')
+parser.add_argument('--logfile', type=str, default='../../training.log', help='logging path')
 
 
 ##########################################
@@ -87,11 +87,13 @@ logger.addHandler(plog)
 logger.info('Currently use {} for calculating'.format(device))
 if __DEBUG__:
   batch_size = 10
-  num_workers = 1
+  num_workers = 0
 #
 #
 ##########################################
 
+
+tag_size = 4500
 
 def initital_network_weights(element):
   if hasattr(element, 'weight'):
@@ -115,8 +117,8 @@ class SRGAN():
     if checkpoint == None:
       logger.info('Don\'t have pre-trained model. Ignore loading model process.')
       logger.info('Set Generator and Discriminator')
-      self.G = Generator().to(device)
-      self.D = Discriminator().to(device)
+      self.G = Generator(tag=tag_size).to(device)
+      self.D = Discriminator(tag=tag_size).to(device)
       logger.info('Initialize Weights')
       self.G.apply(initital_network_weights).to(device)
       self.D.apply(initital_network_weights).to(device)
@@ -157,7 +159,7 @@ class SRGAN():
 
   def train(self):
     iteration = -1
-    label = Variable(torch.FloatTensor(batch_size, 1.0)).to(device)
+    label = Variable(torch.FloatTensor(batch_size, 1)).to(device)
     logging.info('Current epoch: {}. Max epoch: {}.'.format(self.epoch, max_epoch))
     while self.epoch <= max_epoch:
       msg = {}
@@ -183,8 +185,9 @@ class SRGAN():
 
         # 1.2. real image's loss
         real_label_loss = self.label_criterion(label_p, label)
-        real_tag_loss = self.tag_criterion(tag_p, avatar_tag)
-        real_loss_sum = real_label_loss * lambda_adv / 2.0 + real_tag_loss * lambda_adv / 2.0
+        # real_tag_loss = self.tag_criterion(tag_p, avatar_tag)
+        # real_loss_sum = real_label_loss * lambda_adv / 2.0 + real_tag_loss * lambda_adv / 2.0
+        real_loss_sum = real_label_loss * lambda_adv / 2.0
         real_loss_sum.backward()
         if verbose:
           if iteration % verbose_T == 0:
