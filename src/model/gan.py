@@ -8,14 +8,13 @@ The label_criterion was also different.
 import argparse
 from networks.generator import Generator
 from networks.discriminator import Discriminator
-from data_loader import AnimeFaceDataset
+from data_loader import FoodDataset
 import torch
 import torch.nn as nn
 from torchvision.transforms import ToTensor
 import torchvision.transforms as transforms
 from torch.autograd import Variable, grad
 import utils
-import random
 import os
 import torchvision.utils as vutils
 import logging
@@ -29,8 +28,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Training settings
 parser = argparse.ArgumentParser(description="PyTorch SRResNet-GAN")
-parser.add_argument('--avatar_tag_dat_path', type=str, default='../../resource/avatar_with_tag.dat', help='avatar with tag\'s list path')
-
+# TODO:
+parser.add_argument('--food_tag_dat_path', type=str, default='../../data/det_ingrs.dat', help='avatar with tag\'s list path')
 parser.add_argument('--learning_rate', type=float, default=0.0002, help='learning rate')
 parser.add_argument('--beta_1', type=float, default=0.5, help='adam optimizer\'s paramenter')
 parser.add_argument('--batch_size', type=int, default=64, help='training batch size for each epoch')
@@ -40,10 +39,13 @@ parser.add_argument('--num_workers', type=int, default=4, help='number of data l
 parser.add_argument('--noise_size', type=int, default=128, help='number of G\'s input')
 parser.add_argument('--lambda_adv', type=float, default=34.0, help='adv\'s lambda')
 parser.add_argument('--lambda_gp', type=float, default=0.5, help='gp\'s lambda')
+# TODO:
 parser.add_argument('--model_dump_path', type=str, default='../../resource/gan_models', help='model\'s save path')
 parser.add_argument('--verbose', type=bool, default=True, help='output verbose messages')
+# TODO:
 parser.add_argument('--tmp_path', type=str, default='../../resource/training_temp_1/', help='path of the intermediate files during training')
 parser.add_argument('--verbose_T', type=int, default=100, help='steps for saving intermediate file')
+# TODO:
 parser.add_argument('--logfile', type=str, default='../../resource/training.log', help='logging path')
 
 
@@ -51,7 +53,7 @@ parser.add_argument('--logfile', type=str, default='../../resource/training.log'
 # Load params
 #
 opt = parser.parse_args()
-avatar_tag_dat_path = opt.avatar_tag_dat_path
+food_tag_dat_path = opt.food_tag_dat_path
 learning_rate = opt.learning_rate
 beta_1 = opt.beta_1
 batch_size= opt.batch_size
@@ -104,8 +106,7 @@ def adjust_learning_rate(optimizer, iteration):
 class SRGAN():
   def __init__(self):
     logger.info('Set Data Loader')
-    self.dataset = AnimeFaceDataset(avatar_tag_dat_path=avatar_tag_dat_path,
-                                    transform=transforms.Compose([ToTensor()]))
+    self.dataset = FoodDataset(transform=transforms.Compose([ToTensor()]))
     self.data_loader = torch.utils.data.DataLoader(self.dataset,
                                                    batch_size=batch_size,
                                                    shuffle=True,
@@ -121,7 +122,7 @@ class SRGAN():
       self.D.apply(initital_network_weights).to(device)
       logger.info('Set Optimizers')
       self.optimizer_G = torch.optim.Adam(self.G.parameters(), lr=learning_rate, betas=(beta_1, 0.999))
-      self.optimizer_D = torch.optim.Adam(self.D.parameters(), lr=learning_rate, betas=(beta_1, 0.999))
+      self.optimizer_D = torch.optim.SGD(self.D.parameters(), lr=learning_rate)
       self.epoch = 0
     else:
       logger.info('Load Generator and Discriminator')
@@ -174,7 +175,6 @@ class SRGAN():
             msg['iteration'] = iteration
         avatar_img = Variable(avatar_img).to(device)
         avatar_tag = Variable(torch.FloatTensor(avatar_tag)).to(device)
-        # D : G = 2 : 1
         # 1. Training D
         # 1.1. use really image for discriminating
         self.D.zero_grad()
@@ -200,7 +200,9 @@ class SRGAN():
         # 1.4. fake image's loss
         fake_label_loss = self.label_criterion(fake_label_p, label)
         fake_tag_loss = self.tag_criterion(fake_tag_p, fake_tag)
-        fake_loss_sum = fake_label_loss * lambda_adv / 2.0 + fake_tag_loss * lambda_adv / 2.0
+        # TODO:
+        fake_loss_sum = fake_label_loss * lambda_adv / 2.0
+        # fake_loss_sum = fake_label_loss * lambda_adv / 2.0 + fake_tag_loss * lambda_adv / 2.0
         fake_loss_sum.backward()
         if verbose:
           if iteration % verbose_T == 0:
@@ -238,7 +240,8 @@ class SRGAN():
         # 2.2. calc loss
         label_loss_g = self.label_criterion(fake_label_p, label)
         tag_loss_g = self.tag_criterion(fake_tag_p, fake_tag)
-        loss_g = label_loss_g  * lambda_adv / 2.0 + tag_loss_g * lambda_adv / 2.0
+        # loss_g = label_loss_g  * lambda_adv / 2.0 + tag_loss_g * lambda_adv / 2.0
+        loss_g = label_loss_g  * lambda_adv / 2.0
         loss_g.backward()
         if verbose:
           if iteration % verbose_T == 0:

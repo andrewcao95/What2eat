@@ -2,17 +2,34 @@ __author__ = 'Wendong Xu'
 import os
 from torch.utils.data import Dataset
 import PIL.Image as Image
+from scipy import misc
 import pickle
+import re
 
 
 # TODO: modify
-food_npz_path = '../../resource/det_ingrs.npy'
-data_root_path = '../data/'
+food_pickle_path = '../../data/det_ingrs.dat'
+data_root_path = '../../data/train/'
+filename_ptn = re.compile('(.+)\..+')
 
-def get_food_with_tag(food_npz_path):
+def get_filename_picklefile(file_root_path):
+  for rt, dirs, files in os.walk(file_root_path):
+    ret = []
+    for each in files:
+      try:
+        tmp = filename_ptn.findall(each)[0]
+      except:
+        print('file {} don\'t have this file. skip'.format(each))
+      with open(os.path.join(file_root_path, each), 'rb') as fp:
+        ret.append([tmp, pickle.load(fp)])
+    return ret
+
+
+def get_food_with_tag(food_pickle_path):
   # image name, seq_vector
-  food_list = np.load(food_npz_path)
-  return food_list
+  with open(food_pickle_path, 'rb') as fp:
+    food_list = pickle.load(fp)
+    return food_list
 
 
 def img_resize(img_path, aim_size=128):
@@ -26,13 +43,13 @@ def get_image_filepath(data_root_path, img_filename):
   data_root_path = os.path.join(data_root_path, img_filename[1])
   data_root_path = os.path.join(data_root_path, img_filename[2])
   data_root_path = os.path.join(data_root_path, img_filename[3])
-  os.path.join(data_root_path, img_filename)
+  data_root_path = os.path.join(data_root_path, img_filename)
   return data_root_path
 
 
 class FoodDataset(Dataset):
   def __init__(self, transform=None, target_transform=None):
-    self.food_list = get_food_with_tag()
+    self.food_list = get_filename_picklefile(data_root_path)
     self.transform = transform
     self.target_transform = target_transform
 
@@ -49,5 +66,8 @@ class FoodDataset(Dataset):
 
 
 if __name__ == '__main__':
-  food_tag_dat_path = '../../resource/avatar_with_tag.dat'
-  FoodDataset(food_tag_dat_path)
+  # vec = [['0000dfbc52.jpg', [1,2,3,4,5,6,7,8,9]]]
+  # with open('./det_ingrs.dat', 'wb') as fp:
+  #   pickle.dump(vec, fp)
+  x = get_food_with_tag(food_pickle_path)
+  x = img_resize(get_image_filepath(data_root_path, x[0][0]))

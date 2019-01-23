@@ -1,6 +1,6 @@
 __author__ = 'Wendong Xu'
 '''
-Use PReLU instead of ReLU.
+Use LeakyReLU instead of ReLU.
 intput: tag's one-hot map
 output: image(NCWH)
 '''
@@ -14,7 +14,7 @@ class _ResidualBlock(nn.Module):
     self.conv_1 = nn.Conv2d(in_channels, out_channels,
                   kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
     self.bn_1 = nn.BatchNorm2d(out_channels)
-    self.relu = nn.PReLU()
+    self.relu = nn.LeakyReLU()
     self.conv_2 = nn.Conv2d(out_channels, out_channels,
                   kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
     self.bn_2 = nn.BatchNorm2d(out_channels)
@@ -37,7 +37,7 @@ class _SubpixelBlock(nn.Module):
                  kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
     self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
     self.bn = nn.BatchNorm2d(in_channels)
-    self.relu = nn.PReLU()
+    self.relu = nn.LeakyReLU()
 
   def forward(self, tensor):
     output = self.conv(tensor)
@@ -53,10 +53,10 @@ class Generator(nn.Module):
     in_channels = 128 + tag
     self.dense_1 = nn.Linear(in_channels, 64*16*16)
     self.bn_1 = nn.BatchNorm2d(64)
-    self.relu_1 = nn.PReLU()
+    self.relu_1 = nn.LeakyReLU()
     self.residual_layer = self.make_residual_layer(16) # outn=64
     self.bn_2 = nn.BatchNorm2d(64)
-    self.relu_2 = nn.PReLU()
+    self.relu_2 = nn.LeakyReLU()
     self.subpixel_layer = self.make_subpixel_layer(3) # outn=64
     self.conv_1 = nn.Conv2d(64, 3, kernel_size=9, stride=1, padding=4, bias=True)
     self.tanh_1 = nn.Tanh()
@@ -93,7 +93,7 @@ if __name__ == '__main__':
   from torch.autograd import Variable
   import torch
 
-  gen = Generator()
-  x = Variable(torch.rand((1, 128+34)), requires_grad=True)
+  gen = Generator(tag=1200)
+  x = Variable(torch.rand((1, 128+1200)), requires_grad=True)
   print(gen(x).shape)
 
