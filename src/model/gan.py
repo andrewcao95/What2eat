@@ -30,7 +30,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 parser = argparse.ArgumentParser(description="PyTorch SRResNet-GAN")
 # TODO:
 parser.add_argument('--food_tag_dat_path', type=str, default='/home/kirai_wendong/proj/food-1000/ingredient/det_ingrs.dat', help='avatar with tag\'s list path')
-parser.add_argument('--learning_rate', type=float, default=0.0002, help='learning rate')
+parser.add_argument('--learning_rate', type=float, default=0.00001, help='learning rate')
 parser.add_argument('--beta_1', type=float, default=0.5, help='adam optimizer\'s paramenter')
 parser.add_argument('--batch_size', type=int, default=64, help='training batch size for each epoch')
 parser.add_argument('--lr_update_cycle', type=int, default=50000, help='cycle of updating learning rate')
@@ -223,7 +223,7 @@ class SRGAN():
         gradients = grad(outputs=pred_hat, inputs=x_hat, grad_outputs=torch.ones(pred_hat.size()).to(device),
                          create_graph=True, retain_graph=True, only_inputs=True)[0].view(x_hat.size(0), -1)
         gradient_penalty = lambda_gp * ((gradients.norm(2, dim=1) - 1) ** 2).mean()
-        gradient_penalty.backward()
+        # gradient_penalty.backward()
         if verbose:
           if iteration % verbose_T == 0:
             msg['discriminator gradient penalty'] = float(gradient_penalty)
