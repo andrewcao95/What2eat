@@ -95,7 +95,7 @@ class FoodDataset(Dataset):
     w2v = pickle.load(open(path, 'rb'), encoding='iso-8859-1')
     # print(w2v.shape)
     return w2v.astype('float32'), image
-
+    
   def __len__(self):
     return len(self.food_list)
 

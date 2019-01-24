@@ -10,6 +10,7 @@ from networks.generator import Generator
 from networks.discriminator import Discriminator
 from data_loader import FoodDataset
 import torch
+import alexnet
 import torch.nn as nn
 from torchvision.transforms import ToTensor
 import torchvision.transforms as transforms
@@ -18,8 +19,13 @@ import utils
 import os
 import torchvision.utils as vutils
 import logging
+import numpy as np
 import time
+from scipy import misc
+import copy
 import torch.nn.functional as F
+from PIL import Image
+import cv2
 
 
 __DEBUG__ = True
@@ -139,8 +145,12 @@ class SRGAN():
       self.optimizer_D = torch.optim.Adam(self.D.parameters(), lr=learning_rate, betas=(beta_1, 0.999))
       self.optimizer_G.load_state_dict(checkpoint['optimizer_G'])
       self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
+      
+      
       self.epoch = checkpoint['epoch']
     logger.info('Set Criterion')
+    self.a_D = alexnet.alexnet(num_classes=tag_size).to(device)
+    self.optimizer_a_D = torch.optim.Adam(self.a_D.parameters(), lr=learning_rate, betas=(beta_1, .999))
     # self.label_criterion = nn.BCEWithLogitsLoss().to(device)
     # self.tag_criterion = nn.BCEWithLogitsLoss().to(device)
 
@@ -176,7 +186,14 @@ class SRGAN():
             msg['epoch'] = int(self.epoch)
             msg['step'] = int(i)
             msg['iteration'] = iteration
+        
         avatar_img = Variable(avatar_img).to(device)
+        # 0. training assistant D
+        self.a_D.zero_grad()
+        a_D_feat = self.a_D(avatar_img)
+        
+
+
         # 1. Training D
         # 1.1. use really image for discriminating
         self.D.zero_grad()
@@ -221,6 +238,9 @@ class SRGAN():
         fake_img = self.G(fake_feat)
         fake_label_p = self.D(fake_img)
         label.data.fill_(1.0)
+
+        a_D_feat = self.a_D(fake_img)
+        feat_loss = F.binary_cross_entropy(a_D_feat, fake_tag)
 
         # 2.2. calc loss
         # label_loss_g = self.label_criterion(fake_label_p, label)
