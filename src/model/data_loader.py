@@ -29,28 +29,28 @@ def get_image_filepath(data_root_path, img_filename):
 
 
 def get_img_to_id():
-	label_img = []
-	with open(json_id_img_path, 'r') as fp:
-		js = json.load(fp)
-		for line in js:
-			label_id = line['id']
-			if not os.path.exists(os.path.join(data_root_path, label_id+'.pkl')):
-				# print(os.path.join(data_root_path, label_id+'.pkl'))
-				# print('pkl {} not find. skip.'.format(label_id))
-				continue
-			# print(os.path.join(data_root_path, label_id+'.pkl'))
-			for img in line['images']:
-				if not os.path.exists(get_image_filepath(img_root_path, img['id'][:-4])):
-					continue
-				label_img.append([img['id'][:-4], line['id']])
-	return label_img
+  label_img = []
+  with open(json_id_img_path, 'r') as fp:
+    js = json.load(fp)
+    for line in js:
+      label_id = line['id']
+      if not os.path.exists(os.path.join(data_root_path, label_id+'.pkl')):
+        # print(os.path.join(data_root_path, label_id+'.pkl'))
+        # print('pkl {} not find. skip.'.format(label_id))
+        continue
+      # print(os.path.join(data_root_path, label_id+'.pkl'))
+      for img in line['images']:
+        if not os.path.exists(get_image_filepath(img_root_path, img['id'][:-4])):
+          continue
+        label_img.append([img['id'][:-4], line['id']])
+  return label_img
 
 
 # label_img = get_img_to_id()
 # with open('./label_img.pkl', 'wb') as fp:
-# 	pickle.dump(label_img, fp)
+#   pickle.dump(label_img, fp)
 with open('./label_img.pkl', 'rb') as fp:
-	label_img = pickle.load(fp)
+  label_img = pickle.load(fp)
 
 
 def get_filename_picklefile(file_root_path):

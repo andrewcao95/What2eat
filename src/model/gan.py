@@ -19,6 +19,7 @@ import os
 import torchvision.utils as vutils
 import logging
 import time
+import torch.nn.functional as F
 
 
 __DEBUG__ = True
@@ -30,7 +31,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 parser = argparse.ArgumentParser(description="PyTorch SRResNet-GAN")
 # TODO:
 parser.add_argument('--food_tag_dat_path', type=str, default='/home/kirai_wendong/proj/food-1000/ingredient/det_ingrs.dat', help='avatar with tag\'s list path')
-parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
+parser.add_argument('--learning_rate', type=float, default=0.00005, help='learning rate')
 parser.add_argument('--beta_1', type=float, default=0.5, help='adam optimizer\'s paramenter')
 parser.add_argument('--batch_size', type=int, default=64, help='training batch size for each epoch')
 parser.add_argument('--lr_update_cycle', type=int, default=50000, help='cycle of updating learning rate')
@@ -44,7 +45,7 @@ parser.add_argument('--model_dump_path', type=str, default='../../models', help=
 parser.add_argument('--verbose', type=bool, default=True, help='output verbose messages')
 # TODO:
 parser.add_argument('--tmp_path', type=str, default='../../training_temp/', help='path of the intermediate files during training')
-parser.add_argument('--verbose_T', type=int, default=100, help='steps for saving intermediate file')
+parser.add_argument('--verbose_T', type=int, default=50, help='steps for saving intermediate file')
 # TODO:
 parser.add_argument('--logfile', type=str, default='../../training.log', help='logging path')
 
@@ -124,12 +125,12 @@ class SRGAN():
       self.D.apply(initital_network_weights).to(device)
       logger.info('Set Optimizers')
       self.optimizer_G = torch.optim.Adam(self.G.parameters(), lr=learning_rate, betas=(beta_1, 0.999))
-      self.optimizer_D = torch.optim.SGD(self.D.parameters(), lr=learning_rate)
+      self.optimizer_D = torch.optim.Adam(self.D.parameters(), lr=learning_rate, betas=(beta_1, 0.999))
       self.epoch = 0
     else:
       logger.info('Load Generator and Discriminator')
-      self.G = Generator().to(device)
-      self.D = Discriminator().to(device)
+      self.G = Generator(tag=tag_size).to(device)
+      self.D = Discriminator(tag=tag_size).to(device)
       logger.info('Load Pre-Trained Weights From Checkpoint'.format(checkpoint_name))
       self.G.load_state_dict(checkpoint['G'])
       self.D.load_state_dict(checkpoint['D'])
@@ -140,8 +141,8 @@ class SRGAN():
       self.optimizer_D.load_state_dict(checkpoint['optimizer_D'])
       self.epoch = checkpoint['epoch']
     logger.info('Set Criterion')
-    self.label_criterion = nn.BCEWithLogitsLoss().to(device)
-    self.tag_criterion = nn.BCEWithLogitsLoss().to(device)
+    # self.label_criterion = nn.BCEWithLogitsLoss().to(device)
+    # self.tag_criterion = nn.BCEWithLogitsLoss().to(device)
 
 
   def load_checkpoint(self, model_dir):
@@ -179,11 +180,12 @@ class SRGAN():
         # 1. Training D
         # 1.1. use really image for discriminating
         self.D.zero_grad()
-        label_p, tag_p = self.D(avatar_img)
+        label_p = self.D(avatar_img)
         label.data.fill_(1.0)
 
         # 1.2. real image's loss
-        real_label_loss = self.label_criterion(label_p, label)
+        # real_label_loss = self.label_criterion(label_p, label)
+        real_label_loss = F.binary_cross_entropy(label_p, label)
         real_loss_sum = real_label_loss
         real_loss_sum.backward()
         if verbose:
@@ -194,31 +196,19 @@ class SRGAN():
         g_noise, fake_tag = utils.fake_generator(batch_size, noise_size, device)
         fake_feat = torch.cat([g_noise, fake_tag], dim=1)
         fake_img = self.G(fake_feat).detach()
-        fake_label_p, fake_tag_p = self.D(fake_img)
+        fake_label_p = self.D(fake_img)
         label.data.fill_(.0)
 
         # 1.4. fake image's loss
-        fake_label_loss = self.label_criterion(fake_label_p, label)
+        # fake_label_loss = self.label_criterion(fake_label_p, label)
+        fake_label_loss = F.binary_cross_entropy(fake_label_p, label)
         # TODO:
         fake_loss_sum = fake_label_loss
         fake_loss_sum.backward()
         if verbose:
           if iteration % verbose_T == 0:
+            print('predicted fake label: {}'.format(fake_label_p))
             msg['discriminator fake loss'] = float(fake_loss_sum)
-
-        # 1.5. gradient penalty
-        # https://github.com/jfsantos/dragan-pytorch/blob/master/dragan.py
-        alpha_size = [1] * avatar_img.dim()
-        alpha_size[0] = avatar_img.size(0)
-        alpha = torch.rand(alpha_size).to(device)
-        x_hat = Variable(alpha * avatar_img.data + (1 - alpha) * \
-                         (avatar_img.data + 0.5 * avatar_img.data.std() * Variable(torch.rand(avatar_img.size())).to(device)),
-                         requires_grad=True).to(device)
-        pred_hat, pred_tag = self.D(x_hat)
-        gradients = grad(outputs=pred_hat, inputs=x_hat, grad_outputs=torch.ones(pred_hat.size()).to(device),
-                         create_graph=True, retain_graph=True, only_inputs=True)[0].view(x_hat.size(0), -1)
-        gradient_penalty = lambda_gp * ((gradients.norm(2, dim=1) - 1) ** 2).mean()
-        # gradient_penalty.backward()
 
         # 1.6. update optimizer
         self.optimizer_D.step()
@@ -229,11 +219,12 @@ class SRGAN():
         g_noise, fake_tag = utils.fake_generator(batch_size, noise_size, device)
         fake_feat = torch.cat([g_noise, fake_tag], dim=1)
         fake_img = self.G(fake_feat)
-        fake_label_p, fake_tag_p = self.D(fake_img)
+        fake_label_p = self.D(fake_img)
         label.data.fill_(1.0)
 
         # 2.2. calc loss
-        label_loss_g = self.label_criterion(fake_label_p, label)
+        # label_loss_g = self.label_criterion(fake_label_p, label)
+        label_loss_g = F.binary_cross_entropy(fake_label_p, label)
         loss_g = label_loss_g
         loss_g.backward()
         if verbose:
@@ -249,6 +240,16 @@ class SRGAN():
             for key in msg.keys():
               logger.info('{} : {}'.format(key, msg[key]))
         # save intermediate file
+        if iteration % 10000 == 0:
+          torch.save({
+            'epoch': self.epoch,
+            'D': self.D.state_dict(),
+            'G': self.G.state_dict(),
+            'optimizer_D': self.optimizer_D.state_dict(),
+            'optimizer_G': self.optimizer_G.state_dict(),
+          },'{}/checkpoint_{}.tar'.format(model_dump_path, str(iteration).zfill(8)))
+          logger.info('Checkpoint saved in: {}'.format('{}/checkpoint_{}.tar'.format(model_dump_path, str(iteration).zfill(8))))
+
         if iteration % verbose_T == 0:
           vutils.save_image(avatar_img.data.view(batch_size, 3, avatar_img.size(2), avatar_img.size(3)),
                             os.path.join(tmp_path, 'real_image_{}.png'.format(str(iteration).zfill(8))))
