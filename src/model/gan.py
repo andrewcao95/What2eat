@@ -36,7 +36,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Training settings
 parser = argparse.ArgumentParser(description="PyTorch SRResNet-GAN")
 # TODO:
-parser.add_argument('--food_tag_dat_path', type=str, default='/home/kirai_wendong/proj/food-1000/ingredient/det_ingrs.dat', help='avatar with tag\'s list path')
+parser.add_argument('--food_tag_dat_path', type=str, default='/home/kirai_wendong/proj/food-1000/ingredient/det_ingrs.dat', help='food with tag\'s list path')
 parser.add_argument('--learning_rate', type=float, default=0.00005, help='learning rate')
 parser.add_argument('--beta_1', type=float, default=0.5, help='adam optimizer\'s paramenter')
 parser.add_argument('--batch_size', type=int, default=64, help='training batch size for each epoch')
@@ -176,9 +176,9 @@ class SRGAN():
       msg = {}
       adjust_learning_rate(self.optimizer_G, iteration)
       adjust_learning_rate(self.optimizer_D, iteration)
-      for i, (avatar_tag, avatar_img) in enumerate(self.data_loader):
+      for i, (food_tag, food_img) in enumerate(self.data_loader):
         iteration += 1
-        if avatar_img.shape[0] != batch_size:
+        if food_img.shape[0] != batch_size:
           logging.warn('Batch size not satisfied. Ignoring.')
           continue
         if verbose:
@@ -187,17 +187,17 @@ class SRGAN():
             msg['step'] = int(i)
             msg['iteration'] = iteration
         
-        avatar_img = Variable(avatar_img).to(device)
+        food_img = Variable(food_img).to(device)
         # 0. training assistant D
         self.a_D.zero_grad()
-        a_D_feat = self.a_D(avatar_img)
+        a_D_feat = self.a_D(food_img)
         
 
 
         # 1. Training D
         # 1.1. use really image for discriminating
         self.D.zero_grad()
-        label_p = self.D(avatar_img)
+        label_p = self.D(food_img)
         label.data.fill_(1.0)
 
         # 1.2. real image's loss
@@ -271,12 +271,12 @@ class SRGAN():
           logger.info('Checkpoint saved in: {}'.format('{}/checkpoint_{}.tar'.format(model_dump_path, str(iteration).zfill(8))))
 
         if iteration % verbose_T == 0:
-          vutils.save_image(avatar_img.data.view(batch_size, 3, avatar_img.size(2), avatar_img.size(3)),
+          vutils.save_image(food_img.data.view(batch_size, 3, food_img.size(2), food_img.size(3)),
                             os.path.join(tmp_path, 'real_image_{}.png'.format(str(iteration).zfill(8))))
           g_noise, fake_tag = utils.fake_generator(batch_size, noise_size, device)
           fake_feat = torch.cat([g_noise, fake_tag], dim=1)
           fake_img = self.G(fake_feat)
-          vutils.save_image(fake_img.data.view(batch_size, 3, avatar_img.size(2), avatar_img.size(3)),
+          vutils.save_image(fake_img.data.view(batch_size, 3, food_img.size(2), food_img.size(3)),
                             os.path.join(tmp_path, 'fake_image_{}.png'.format(str(iteration).zfill(8))))
           logger.info('Saved intermediate file in {}'.format(os.path.join(tmp_path, 'fake_image_{}.png'.format(str(iteration).zfill(8)))))
       # dump checkpoint
