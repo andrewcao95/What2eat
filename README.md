@@ -75,5 +75,7 @@ We selected several result generated images as follows. The sentences below the 
 #### Reference
 
 [1]. Salvador, Amaia , et al. "Learning Cross-Modal Embeddings for Cooking Recipes and Food Images." CVPR, 2017.
+
 [2]. Mikolov, Tomas , et al. “Distributed Representations of Words and Phrases and their Compositionality.” NIPS, 2013.
+
 [3]. Ledig, Christian, et al. "Photo-realistic single image super-resolution using a generative adversarial network." CVPR, 2017.
