@@ -21,7 +21,7 @@ def read_newest_model(model_dump_path):
 def fake_tag():
 	_tag = [0 for _ in range(tag_shape)]
 	_tag = Variable(torch.FloatTensor(_tag)).view(1, -1)
-	_tag.normal_(.0, 1)
+	_tag.data.normal_(.0, 1)
 	return _tag
 
 

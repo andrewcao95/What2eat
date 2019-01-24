@@ -30,7 +30,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 parser = argparse.ArgumentParser(description="PyTorch SRResNet-GAN")
 # TODO:
 parser.add_argument('--food_tag_dat_path', type=str, default='/home/kirai_wendong/proj/food-1000/ingredient/det_ingrs.dat', help='avatar with tag\'s list path')
-parser.add_argument('--learning_rate', type=float, default=0.00001, help='learning rate')
+parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
 parser.add_argument('--beta_1', type=float, default=0.5, help='adam optimizer\'s paramenter')
 parser.add_argument('--batch_size', type=int, default=64, help='training batch size for each epoch')
 parser.add_argument('--lr_update_cycle', type=int, default=50000, help='cycle of updating learning rate')
@@ -86,7 +86,7 @@ logger.addHandler(plog)
 
 logger.info('Currently use {} for calculating'.format(device))
 if __DEBUG__:
-  batch_size = 10
+  batch_size = 16
   num_workers = 0
 #
 #
@@ -141,7 +141,7 @@ class SRGAN():
       self.epoch = checkpoint['epoch']
     logger.info('Set Criterion')
     self.label_criterion = nn.BCEWithLogitsLoss().to(device)
-    self.tag_criterion = nn.MultiLabelSoftMarginLoss().to(device)
+    self.tag_criterion = nn.BCEWithLogitsLoss().to(device)
 
 
   def load_checkpoint(self, model_dir):
@@ -176,7 +176,6 @@ class SRGAN():
             msg['step'] = int(i)
             msg['iteration'] = iteration
         avatar_img = Variable(avatar_img).to(device)
-        avatar_tag = Variable(torch.FloatTensor(avatar_tag)).to(device)
         # 1. Training D
         # 1.1. use really image for discriminating
         self.D.zero_grad()
@@ -185,9 +184,7 @@ class SRGAN():
 
         # 1.2. real image's loss
         real_label_loss = self.label_criterion(label_p, label)
-        # real_tag_loss = self.tag_criterion(tag_p, avatar_tag)
-        # real_loss_sum = real_label_loss * lambda_adv / 2.0 + real_tag_loss * lambda_adv / 2.0
-        real_loss_sum = real_label_loss * lambda_adv / 2.0
+        real_loss_sum = real_label_loss
         real_loss_sum.backward()
         if verbose:
           if iteration % verbose_T == 0:
@@ -202,10 +199,8 @@ class SRGAN():
 
         # 1.4. fake image's loss
         fake_label_loss = self.label_criterion(fake_label_p, label)
-        fake_tag_loss = self.tag_criterion(fake_tag_p, fake_tag)
         # TODO:
-        fake_loss_sum = fake_label_loss * lambda_adv / 2.0
-        # fake_loss_sum = fake_label_loss * lambda_adv / 2.0 + fake_tag_loss * lambda_adv / 2.0
+        fake_loss_sum = fake_label_loss
         fake_loss_sum.backward()
         if verbose:
           if iteration % verbose_T == 0:
@@ -224,9 +219,6 @@ class SRGAN():
                          create_graph=True, retain_graph=True, only_inputs=True)[0].view(x_hat.size(0), -1)
         gradient_penalty = lambda_gp * ((gradients.norm(2, dim=1) - 1) ** 2).mean()
         # gradient_penalty.backward()
-        if verbose:
-          if iteration % verbose_T == 0:
-            msg['discriminator gradient penalty'] = float(gradient_penalty)
 
         # 1.6. update optimizer
         self.optimizer_D.step()
@@ -242,9 +234,7 @@ class SRGAN():
 
         # 2.2. calc loss
         label_loss_g = self.label_criterion(fake_label_p, label)
-        tag_loss_g = self.tag_criterion(fake_tag_p, fake_tag)
-        # loss_g = label_loss_g  * lambda_adv / 2.0 + tag_loss_g * lambda_adv / 2.0
-        loss_g = label_loss_g  * lambda_adv / 2.0
+        loss_g = label_loss_g
         loss_g.backward()
         if verbose:
           if iteration % verbose_T == 0:
