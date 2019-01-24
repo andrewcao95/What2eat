@@ -1,4 +1,4 @@
-# What2eat: An Ingredients-based Food Image Generation Approach
+## What2eat: An Ingredients-based Food Image Generation Approach
 
 <div align="center"><b>Zhiyu Yin, Yiming Li, Wendong Xu</b></div>
 
